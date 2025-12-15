@@ -4,11 +4,50 @@ const gameOverMessage = document.getElementById('game-over-message');
 
 const SIZE = 4;
 const CELL_SIZE = 97.5;
-const GAP = 10; // gap between cells (matches the padding calculation)
+const GAP = 10; 
 
-let grid = []; // Logical grid (stores numbers)
-let tiles = []; // Visual tiles (stores DOM elements)
+let cells = []; // The logical grid (stores Tile objects or null)
 let score = 0;
+let isProcessing = false; // Prevents rapid key spamming during animation
+
+// --- CLASS FOR TILE MANAGEMENT ---
+class Tile {
+    constructor(gameBoard, value, r, c) {
+        this.value = value;
+        this.r = r;
+        this.c = c;
+        this.element = document.createElement('div');
+        this.element.classList.add('tile', `tile-${value}`, 'new-tile');
+        this.element.textContent = value;
+        
+        // Initial Position
+        this.setPosition(r, c);
+        
+        gameBoard.appendChild(this.element);
+        
+        // Remove 'new-tile' class after pop animation
+        setTimeout(() => this.element.classList.remove('new-tile'), 200);
+    }
+
+    setPosition(r, c) {
+        this.r = r;
+        this.c = c;
+        this.element.style.top = `${r * (CELL_SIZE + GAP) + GAP}px`;
+        this.element.style.left = `${c * (CELL_SIZE + GAP) + GAP}px`;
+    }
+
+    setValue(value) {
+        this.value = value;
+        this.element.textContent = value;
+        this.element.className = `tile tile-${value}`; // Reset classes, apply color
+        this.element.classList.add('merged-tile'); // Add pulse animation
+        setTimeout(() => this.element.classList.remove('merged-tile'), 200);
+    }
+
+    remove() {
+        this.element.remove();
+    }
+}
 
 // --- INITIALIZATION ---
 
@@ -24,20 +63,26 @@ function setupBoard() {
             gameBoard.appendChild(cell);
         }
     }
+    
+    cells = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null));
+    score = 0;
+    isProcessing = false;
+    spawnTile();
+    spawnTile();
 }
 
 function restartGame() {
-    // Reset Logic
-    grid = Array(SIZE).fill(null).map(() => Array(SIZE).fill(0));
-    tiles = []; 
+    // Remove all existing tile elements from DOM
+    cells.flat().forEach(tile => {
+        if(tile) tile.remove();
+    });
+    
+    cells = Array(SIZE).fill(null).map(() => Array(SIZE).fill(null));
     score = 0;
-    scoreDisplay.textContent = score;
+    scoreDisplay.textContent = 0;
     gameOverMessage.classList.add('hidden');
-
-    // Clear existing tiles
-    const existingTiles = document.querySelectorAll('.tile');
-    existingTiles.forEach(t => t.remove());
-
+    isProcessing = false;
+    
     spawnTile();
     spawnTile();
 }
@@ -48,7 +93,7 @@ function spawnTile() {
     let emptyCells = [];
     for (let r = 0; r < SIZE; r++) {
         for (let c = 0; c < SIZE; c++) {
-            if (grid[r][c] === 0) emptyCells.push({r, c});
+            if (cells[r][c] === null) emptyCells.push({r, c});
         }
     }
 
@@ -57,149 +102,129 @@ function spawnTile() {
     const {r, c} = emptyCells[Math.floor(Math.random() * emptyCells.length)];
     const value = Math.random() < 0.9 ? 2 : 4;
     
-    grid[r][c] = value;
-    createTileElement(r, c, value);
-}
-
-function createTileElement(r, c, value) {
-    const tile = document.createElement('div');
-    tile.classList.add('tile', `tile-${value}`, 'new-tile');
-    tile.textContent = value;
-    
-    // Set explicit position
-    tile.style.top = `${r * (CELL_SIZE + GAP) + GAP}px`;
-    tile.style.left = `${c * (CELL_SIZE + GAP) + GAP}px`;
-
-    // Add unique ID to track this specific DOM element
-    tile.dataset.r = r;
-    tile.dataset.c = c;
-    
-    gameBoard.appendChild(tile);
-    tiles.push(tile);
-    
-    // Remove animation class after it plays
-    setTimeout(() => tile.classList.remove('new-tile'), 200);
-}
-
-function updateVisuals() {
-    // This function synchronizes the visual tiles with their new logical positions
-    // It finds the tile element that matches the "old" position logic, but here 
-    // we simply iterate and update based on the new logic.
-    
-    // To handle smooth animations, we actually need to update the EXISTING dom elements
-    // to their new top/left coordinates.
-    
-    // Simple approach: Clear and Redraw is jerky. 
-    // Smooth approach: Update the .style.top/left of the specific tile objects.
-    // However, managing object identity is complex.
-    
-    // SIMPLIFIED STABLE APPROACH (Re-rendering with correct classes):
-    // To ensure "floating 2" is fixed, we will wipe and redraw. 
-    // Note: This sacrifices the "slide" animation for "pop" animation, 
-    // but GUARANTEES the board state is visually correct.
-    
-    const existingTiles = document.querySelectorAll('.tile');
-    existingTiles.forEach(t => t.remove());
-
-    for (let r = 0; r < SIZE; r++) {
-        for (let c = 0; c < SIZE; c++) {
-            if (grid[r][c] !== 0) {
-                // Re-create tile (Pop animation will play)
-                // If you want slide, you need complex ID tracking.
-                // Given the bugs, this is the most stable version.
-                const tile = document.createElement('div');
-                tile.classList.add('tile', `tile-${grid[r][c]}`);
-                tile.textContent = grid[r][c];
-                tile.style.top = `${r * (CELL_SIZE + GAP) + GAP}px`;
-                tile.style.left = `${c * (CELL_SIZE + GAP) + GAP}px`;
-                gameBoard.appendChild(tile);
-            }
-        }
-    }
+    cells[r][c] = new Tile(gameBoard, value, r, c);
 }
 
 // --- MOVEMENT LOGIC ---
 
-function slide(row) {
-    // Filter zeros
-    let arr = row.filter(val => val !== 0);
-    // Merge
-    for (let i = 0; i < arr.length - 1; i++) {
-        if (arr[i] === arr[i + 1]) {
-            arr[i] *= 2;
-            score += arr[i];
-            arr[i + 1] = 0;
-        }
-    }
-    // Filter zeros again after merge
-    arr = arr.filter(val => val !== 0);
-    // Pad with zeros
-    while (arr.length < SIZE) {
-        arr.push(0);
-    }
-    return arr;
-}
+// Returns a promise that resolves when animation is done
+async function move(direction) {
+    if (isProcessing) return;
+    isProcessing = true;
 
-function move(direction) {
     let hasMoved = false;
-    let newGrid = JSON.parse(JSON.stringify(grid)); // Deep copy
+    const promises = []; // Store animations
 
-    if (direction === 'ArrowLeft') {
-        for (let r = 0; r < SIZE; r++) {
-            const newRow = slide(newGrid[r]);
-            if (JSON.stringify(newGrid[r]) !== JSON.stringify(newRow)) hasMoved = true;
-            newGrid[r] = newRow;
-        }
-    } else if (direction === 'ArrowRight') {
-        for (let r = 0; r < SIZE; r++) {
-            let row = newGrid[r].reverse();
-            let newRow = slide(row);
-            newRow.reverse();
-            if (JSON.stringify(newGrid[r]) !== JSON.stringify(newRow)) hasMoved = true;
-            newGrid[r] = newRow;
-        }
-    } else if (direction === 'ArrowUp') {
-        for (let c = 0; c < SIZE; c++) {
-            let col = [];
-            for (let r = 0; r < SIZE; r++) col.push(newGrid[r][c]);
-            let newCol = slide(col);
-            for (let r = 0; r < SIZE; r++) {
-                if (newGrid[r][c] !== newCol[r]) hasMoved = true;
-                newGrid[r][c] = newCol[r];
+    // Defines the traversal order based on direction
+    let rStart = 0, rEnd = SIZE, rStep = 1;
+    let cStart = 0, cEnd = SIZE, cStep = 1;
+
+    if (direction === 'ArrowRight') { cStart = SIZE - 1; cEnd = -1; cStep = -1; }
+    if (direction === 'ArrowDown')  { rStart = SIZE - 1; rEnd = -1; rStep = -1; }
+
+    // We merge flags to prevent double merging in one slide
+    let mergedFlags = Array(SIZE).fill(null).map(() => Array(SIZE).fill(false));
+
+    // Iterate through the grid in the correct order
+    for (let r = rStart; r !== rEnd; r += rStep) {
+        for (let c = cStart; c !== cEnd; c += cStep) {
+            const tile = cells[r][c];
+            if (!tile) continue;
+
+            let nextR = r;
+            let nextC = c;
+            
+            // Calculate farthest valid position
+            while (true) {
+                let checkR = nextR;
+                let checkC = nextC;
+
+                if (direction === 'ArrowUp') checkR--;
+                else if (direction === 'ArrowDown') checkR++;
+                else if (direction === 'ArrowLeft') checkC--;
+                else if (direction === 'ArrowRight') checkC++;
+
+                // Bounds Check
+                if (checkR < 0 || checkR >= SIZE || checkC < 0 || checkC >= SIZE) break;
+
+                const target = cells[checkR][checkC];
+
+                // If empty, we can move there
+                if (!target) {
+                    nextR = checkR;
+                    nextC = checkC;
+                } 
+                // If occupied, check for merge
+                else if (target.value === tile.value && !mergedFlags[checkR][checkC]) {
+                    nextR = checkR;
+                    nextC = checkC;
+                    break; // Stop checking, we found a merge
+                } 
+                else {
+                    break; // Blocked by different value or already merged
+                }
             }
-        }
-    } else if (direction === 'ArrowDown') {
-        for (let c = 0; c < SIZE; c++) {
-            let col = [];
-            for (let r = 0; r < SIZE; r++) col.push(newGrid[r][c]);
-            col.reverse();
-            let newCol = slide(col);
-            newCol.reverse();
-            for (let r = 0; r < SIZE; r++) {
-                if (newGrid[r][c] !== newCol[r]) hasMoved = true;
-                newGrid[r][c] = newCol[r];
+
+            // If the tile is moving
+            if (nextR !== r || nextC !== c) {
+                hasMoved = true;
+                const target = cells[nextR][nextC];
+
+                // Update Logical Grid immediately (so next iterations see it)
+                cells[r][c] = null;
+                
+                // Animation Logic
+                tile.setPosition(nextR, nextC); // CSS transition starts here
+
+                if (target) {
+                    // It's a merge
+                    mergedFlags[nextR][nextC] = true;
+                    // Keep the target in the cell for now (visual only)
+                    // The 'tile' object (incoming) is not put in cells array yet
+                    // We handle the actual value update after animation
+                    promises.push({ type: 'merge', from: tile, into: target, r: nextR, c: nextC });
+                } else {
+                    // Simple move
+                    cells[nextR][nextC] = tile;
+                }
             }
         }
     }
 
     if (hasMoved) {
-        grid = newGrid;
+        // Wait for CSS transition (150ms)
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        // Process Merges after animation finishes
+        promises.forEach(p => {
+            if (p.type === 'merge') {
+                p.from.remove(); // Remove the tile that moved
+                p.into.setValue(p.into.value * 2); // Update value of stationary tile
+                score += p.into.value;
+                cells[p.r][p.c] = p.into; // Ensure grid points to the survivor
+            }
+        });
+
         scoreDisplay.textContent = score;
-        updateVisuals(); // Re-render board
-        spawnTile(); // Add new tile
-        
-        if (isGameOver()) {
+        spawnTile();
+
+        if (checkGameOver()) {
             setTimeout(() => gameOverMessage.classList.remove('hidden'), 500);
         }
     }
+
+    isProcessing = false;
 }
 
-function isGameOver() {
+function checkGameOver() {
     for (let r = 0; r < SIZE; r++) {
         for (let c = 0; c < SIZE; c++) {
-            if (grid[r][c] === 0) return false;
-            if (c < SIZE - 1 && grid[r][c] === grid[r][c+1]) return false;
-            if (r < SIZE - 1 && grid[r][c] === grid[r+1][c]) return false;
+            if (!cells[r][c]) return false; // Empty cell exists
+            
+            // Check neighbors
+            const val = cells[r][c].value;
+            if (c < SIZE - 1 && cells[r][c+1] && cells[r][c+1].value === val) return false;
+            if (r < SIZE - 1 && cells[r+1][c] && cells[r+1][c].value === val) return false;
         }
     }
     return true;
@@ -216,4 +241,8 @@ window.addEventListener('keydown', (e) => {
 
 // Start game
 setupBoard();
-restartGame();
+// Inside script.js, find where we set the class:
+this.element.className = `tile tile-${value}`; 
+
+// If you want a fallback for huge numbers, you can change it to:
+// this.element.className = `tile tile-${value > 2048 ? 'super' : value}`;
