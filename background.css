@@ -148,3 +148,96 @@ h1 {
 .hidden {
     display: none !important;
 }
+    /* Update this specific block in your style.css */
+.tile {
+    position: absolute;
+    width: 97.5px;
+    height: 97.5px;
+    background-color: #cdc1b4;
+    border-radius: 3px;
+    font-size: 50px;
+    font-weight: bold;
+    color: #776e65;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    
+    /* VITAL: This creates the slide animation */
+    transition: left 0.15s ease-in-out, top 0.15s ease-in-out, transform 0.1s;
+}/* --- TILE COLORS --- */
+
+/* 2: Light grey/beige */
+.tile-2 { 
+    background-color: #eee4da; 
+    color: #776e65; 
+}
+
+/* 4: Slightly darker beige */
+.tile-4 { 
+    background-color: #ede0c8; 
+    color: #776e65; 
+}
+
+/* 8: Orange */
+.tile-8 { 
+    background-color: #f2b179; 
+    color: #f9f6f2; 
+}
+
+/* 16: Darker Orange */
+.tile-16 { 
+    background-color: #f59563; 
+    color: #f9f6f2; 
+}
+
+/* 32: Red-Orange */
+.tile-32 { 
+    background-color: #f67c5f; 
+    color: #f9f6f2; 
+}
+
+/* 64: Red */
+.tile-64 { 
+    background-color: #f65e3b; 
+    color: #f9f6f2; 
+}
+
+/* 128+: Gold/Yellow shades */
+.tile-128 { 
+    background-color: #edcf72; 
+    color: #f9f6f2; 
+    font-size: 45px; /* Adjust font size for 3 digits */
+}
+
+.tile-256 { 
+    background-color: #edcc61; 
+    color: #f9f6f2; 
+    font-size: 45px; 
+}
+
+.tile-512 { 
+    background-color: #edc850; 
+    color: #f9f6f2; 
+    font-size: 45px; 
+}
+
+.tile-1024 { 
+    background-color: #edc53f; 
+    color: #f9f6f2; 
+    font-size: 35px; /* Adjust font size for 4 digits */
+}
+
+.tile-2048 { 
+    background-color: #edc22e; 
+    color: #f9f6f2; 
+    font-size: 35px; 
+    box-shadow: 0 0 30px 10px rgba(243, 215, 116, 0.476), inset 0 0 0 1px rgba(255, 255, 255, 0.192); /* Glow effect */
+}
+
+/* Fallback for higher numbers (Super dark) */
+.tile-super {
+    background-color: #3c3a32;
+    color: #f9f6f2;
+    font-size: 30px;
+}
